@@ -92,7 +92,7 @@ public class BlobFileSystemTests
         var fileSystem = new BlobFileSystem(_options, _httpClient);
 
         // Act & Assert
-        await Assert.ThrowsAsync<FileNotFoundException>(() => 
+        await Assert.ThrowsAsync<BlobFileNotFoundException>(() => 
             fileSystem.ReadAllTextAsync(testPath));
     }
 

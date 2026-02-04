@@ -59,8 +59,16 @@ public class BlobFileSystem : IFileSystem
         if (string.IsNullOrWhiteSpace(_options.SasToken))
             throw new ArgumentException("SasToken cannot be empty", nameof(options));
 
+        // Note: When httpClient is null, we create a new instance. In production,
+        // consider using IHttpClientFactory to avoid socket exhaustion issues.
+        // This is primarily for testing and simple scenarios.
         _httpClient = httpClient ?? new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
+        
+        // Only set timeout if we created the HttpClient
+        if (httpClient == null)
+        {
+            _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
+        }
 
         // Create retry pipeline with exponential backoff
         _retryPipeline = new ResiliencePipelineBuilder()
@@ -160,14 +168,14 @@ public class BlobFileSystem : IFileSystem
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new FileNotFoundException(path);
+                throw new BlobFileNotFoundException(path);
             }
 
             response.EnsureSuccessStatusCode();
             
             return await response.Content.ReadAsByteArrayAsync(cancellationToken);
         }
-        catch (FileNotFoundException)
+        catch (BlobFileNotFoundException)
         {
             throw;
         }
@@ -215,14 +223,14 @@ public class BlobFileSystem : IFileSystem
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new FileNotFoundException(path);
+                throw new BlobFileNotFoundException(path);
             }
 
             response.EnsureSuccessStatusCode();
             
             return await response.Content.ReadAsStreamAsync(cancellationToken);
         }
-        catch (FileNotFoundException)
+        catch (BlobFileNotFoundException)
         {
             throw;
         }
@@ -249,7 +257,17 @@ public class BlobFileSystem : IFileSystem
             var response = await _retryPipeline.ExecuteAsync(async ct =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Head, url);
-                return await _httpClient.SendAsync(request, ct);
+                var resp = await _httpClient.SendAsync(request, ct);
+                
+                // Throw exception for retryable status codes
+                if (resp.StatusCode == HttpStatusCode.RequestTimeout ||
+                    resp.StatusCode == HttpStatusCode.TooManyRequests ||
+                    (int)resp.StatusCode >= 500)
+                {
+                    throw new HttpRequestException($"Request failed with status code {resp.StatusCode}");
+                }
+                
+                return resp;
             }, cancellationToken);
 
             return response.IsSuccessStatusCode;

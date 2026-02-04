@@ -9,17 +9,17 @@ public class FileSystemException : Exception
     public FileSystemException(string message, Exception innerException) : base(message, innerException) { }
 }
 
-public class FileNotFoundException : FileSystemException
+public class BlobFileNotFoundException : FileSystemException
 {
     public string Path { get; }
     
-    public FileNotFoundException(string path) 
+    public BlobFileNotFoundException(string path) 
         : base($"File not found: {path}")
     {
         Path = path;
     }
     
-    public FileNotFoundException(string path, Exception innerException) 
+    public BlobFileNotFoundException(string path, Exception innerException) 
         : base($"File not found: {path}", innerException)
     {
         Path = path;

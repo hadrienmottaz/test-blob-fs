@@ -79,10 +79,19 @@ bool exists = await fileSystem.ExistsAsync("file.txt");
 
 ### Dependency Injection
 
+For production use, it's recommended to use HttpClientFactory to avoid socket exhaustion:
+
 ```csharp
 // In your Startup.cs or Program.cs
+services.AddHttpClient();
 services.Configure<BlobFileSystemOptions>(configuration.GetSection("BlobStorage"));
-services.AddSingleton<IFileSystem, BlobFileSystem>();
+services.AddSingleton<IFileSystem>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<BlobFileSystemOptions>>().Value;
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient();
+    return new BlobFileSystem(options, httpClient);
+});
 
 // In your service
 public class MyService
@@ -122,7 +131,7 @@ try
 {
     var content = await fileSystem.ReadAllTextAsync("missing.txt");
 }
-catch (FileNotFoundException ex)
+catch (BlobFileNotFoundException ex)
 {
     // File doesn't exist in blob storage
     Console.WriteLine($"File not found: {ex.Path}");
