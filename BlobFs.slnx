@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BlobFs.Tests/BlobFs.Tests.csproj" />
+  <Project Path="BlobFs/BlobFs.csproj" />
+</Solution>
